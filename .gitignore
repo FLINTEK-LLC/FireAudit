@@ -44,3 +44,6 @@ htmlcov/
 
 # Logs
 *.log
+
+# Internal audit report (not published to GitHub)
+AUDIT.md

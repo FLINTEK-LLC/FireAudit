@@ -1,3 +1,6 @@
+# Copyright (c) 2026 FLINTEK LLC
+# Licensed under the Apache License, Version 2.0.
+# See LICENSE in the project root for license information.
 """pfSense / OPNsense XML configuration parser.
 
 Parses config.xml exported from pfSense or OPNsense into the FireAudit IR.
@@ -19,6 +22,8 @@ Root structure:
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+
+from defusedxml.ElementTree import fromstring as _safe_fromstring
 from typing import Any
 
 from fireaudit.parsers.base import BaseParser, infer_interface_role
@@ -77,7 +82,7 @@ class PfSenseParser(BaseParser):
 
     def parse(self, content: str) -> dict:
         try:
-            root = ET.fromstring(content)
+            root = _safe_fromstring(content)
         except ET.ParseError as exc:
             raise ValueError(f"Invalid XML: {exc}") from exc
 

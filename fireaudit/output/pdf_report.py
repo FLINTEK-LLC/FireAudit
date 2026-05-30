@@ -1,3 +1,6 @@
+# Copyright (c) 2026 FLINTEK LLC
+# Licensed under the Apache License, Version 2.0.
+# See LICENSE in the project root for license information.
 """PDF report generator using fpdf2 (pure Python, no system dependencies)."""
 
 from __future__ import annotations

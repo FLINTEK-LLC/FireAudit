@@ -1,3 +1,6 @@
+# Copyright (c) 2026 FLINTEK LLC
+# Licensed under the Apache License, Version 2.0.
+# See LICENSE in the project root for license information.
 """PyInstaller entry-point for the standalone fireaudit executable.
 
 This shim is needed so PyInstaller can locate the __main__ module for the

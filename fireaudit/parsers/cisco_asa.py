@@ -1,3 +1,6 @@
+# Copyright (c) 2026 FLINTEK LLC
+# Licensed under the Apache License, Version 2.0.
+# See LICENSE in the project root for license information.
 """Cisco ASA / FTD configuration parser.
 
 Parses 'show running-config' text output from Cisco ASA (and FTD in ASA

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 FLINTEK LLC
+# Licensed under the Apache License, Version 2.0.
+# See LICENSE in the project root for license information.
 """Framework control URL resolver for compliance hyperlinks in reports."""
 
 from __future__ import annotations

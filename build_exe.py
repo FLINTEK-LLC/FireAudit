@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 FLINTEK LLC
+# Licensed under the Apache License, Version 2.0.
+# See LICENSE in the project root for license information.
 """Build FireAudit as a standalone single-file binary using PyInstaller.
 
 Works on Windows, macOS, and Linux.
@@ -64,6 +67,7 @@ def main() -> None:
         "--hidden-import", "fireaudit.updater",
         "--hidden-import", "questionary",
         "--hidden-import", "prompt_toolkit",
+        "--hidden-import", "defusedxml.ElementTree",
         *add_data,
         str(ROOT / "fireaudit_main.py"),
     ]

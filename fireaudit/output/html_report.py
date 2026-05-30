@@ -1,3 +1,6 @@
+# Copyright (c) 2026 FLINTEK LLC
+# Licensed under the Apache License, Version 2.0.
+# See LICENSE in the project root for license information.
 """HTML report generator using Jinja2 templates."""
 
 from __future__ import annotations
@@ -365,6 +368,17 @@ function filterTable() {
 """
 
 
+# Compile the template once at import (it is a constant). Recompiling per call
+# was wasteful in bulk runs that render one report per device.
+# autoescape=True: findings carry attacker-influenced values parsed from the
+# config under audit (hostname, policy names/comments, banners, etc.). Without
+# escaping these would be injected into the HTML report verbatim, enabling
+# stored XSS when the report is opened in a browser.
+_ENV = Environment(loader=BaseLoader(), autoescape=True)
+_ENV.globals["fw_url"] = get_control_url
+_COMPILED_TEMPLATE = _ENV.from_string(_TEMPLATE)
+
+
 def render_html(report: dict, output_path: str | Path | None = None) -> str:
     """Render an HTML report from a report dict. Returns HTML string."""
     # Pre-sort findings: fail/error first by severity, then pass, N/A, manual
@@ -375,10 +389,7 @@ def render_html(report: dict, output_path: str | Path | None = None) -> str:
         key=lambda f: (_sta.get(f.get("status", "pass"), 5), _sev.get(f.get("severity", "info"), 5)),
     )}
 
-    env = Environment(loader=BaseLoader())
-    env.globals["fw_url"] = get_control_url
-    template = env.from_string(_TEMPLATE)
-    html = template.render(report=sorted_report)
+    html = _COMPILED_TEMPLATE.render(report=sorted_report)
 
     if output_path:
         Path(output_path).write_text(html, encoding="utf-8")

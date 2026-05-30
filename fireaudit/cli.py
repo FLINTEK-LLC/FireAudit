@@ -1,3 +1,6 @@
+# Copyright (c) 2026 FLINTEK LLC
+# Licensed under the Apache License, Version 2.0.
+# See LICENSE in the project root for license information.
 """FireAudit CLI entrypoint.
 
 Usage:
@@ -13,6 +16,7 @@ import json
 import logging
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
@@ -296,9 +300,14 @@ def _discover_configs(path: Path) -> list[Path]:
 def _audit_one(
     config_path: Path,
     vendor: str | None,
-    rules_path: Path,
+    all_rules: list[dict],
 ) -> dict:
-    """Parse and audit a single config file. Returns a result dict."""
+    """Parse and audit a single config file. Returns a result dict.
+
+    *all_rules* is the full rule set, loaded once by the caller; the applicable
+    subset for the detected vendor is filtered in-memory so the YAML rule files
+    are not re-read and re-parsed for every device in a bulk run.
+    """
     result: dict = {
         "filename": config_path.name,
         "path": str(config_path),
@@ -327,8 +336,7 @@ def _audit_one(
         ir = parser.parse(content)
         result["hostname"] = ir.get("meta", {}).get("hostname")
 
-        loader = RuleLoader(rules_path)
-        rules = loader.load_for_vendor(detected)
+        rules = [r for r in all_rules if RuleLoader._applies_to_vendor(r, detected)]
         evaluator = RuleEvaluator(rules)
         findings = evaluator.evaluate(ir, vendor=detected)
         report = build_report(ir, findings)
@@ -368,6 +376,14 @@ def bulk(path: str, output_dir: str, fmt: str, vendor: str | None, rules_dir: st
         console.print(f"[yellow]No config files found in:[/yellow] {target}")
         return
 
+    # Load the rule set once and reuse it for every device (the per-vendor subset
+    # is filtered in-memory inside _audit_one).
+    try:
+        all_rules = RuleLoader(rules_path).load_all()
+    except RuleLoadError as exc:
+        console.print(f"[red]Rule load error:[/red] {exc}")
+        sys.exit(1)
+
     out_dir.mkdir(parents=True, exist_ok=True)
     console.print(f"Found [bold]{len(configs)}[/bold] config file(s)  →  reports: [cyan]{out_dir.resolve()}[/cyan]")
 
@@ -385,7 +401,7 @@ def bulk(path: str, output_dir: str, fmt: str, vendor: str | None, rules_dir: st
         task = progress.add_task("Auditing…", total=len(configs))
 
         def _process(cfg: Path) -> dict:
-            res = _audit_one(cfg, vendor, rules_path)
+            res = _audit_one(cfg, vendor, all_rules)
             if res["report"] and not res["error"]:
                 stem = cfg.stem
                 if fmt in ("html", "both"):
@@ -450,13 +466,13 @@ def bulk(path: str, output_dir: str, fmt: str, vendor: str | None, rules_dir: st
 
     console.print(tbl)
 
-    # Fleet summary score
+    # Fleet summary score (computed once and reused for console + JSON + HTML)
+    from fireaudit.engine.scoring import grade_for_score
     scored = [r for r in results if r["posture_score"] is not None]
     errors = [r for r in results if r["error"]]
+    fleet_score = round(sum(r["posture_score"] for r in scored) / len(scored)) if scored else None
+    fleet_grade = grade_for_score(fleet_score) if fleet_score is not None else None
     if scored:
-        fleet_score = round(sum(r["posture_score"] for r in scored) / len(scored))
-        from fireaudit.engine.scoring import grade_for_score
-        fleet_grade = grade_for_score(fleet_score)
         gc = grade_colors.get(fleet_grade, "white")
         console.print(Panel(
             f"Fleet Posture Score: [{gc}][bold]{fleet_score}/100  Grade: {fleet_grade}[/bold][/{gc}]"
@@ -466,10 +482,10 @@ def bulk(path: str, output_dir: str, fmt: str, vendor: str | None, rules_dir: st
 
     # Write fleet_summary.json
     fleet_json = {
-        "generated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "total_devices": len(results),
-        "fleet_posture_score": round(sum(r["posture_score"] for r in scored) / len(scored)) if scored else None,
-        "fleet_grade": grade_for_score(round(sum(r["posture_score"] for r in scored) / len(scored))) if scored else None,
+        "fleet_posture_score": fleet_score,
+        "fleet_grade": fleet_grade,
         "devices": [
             {
                 "filename": r["filename"],
@@ -581,7 +597,9 @@ def _write_fleet_html(results: list[dict], fleet_json: dict, out_path: Path) -> 
 </body>
 </html>"""
 
-    env = Environment(loader=BaseLoader())
+    # autoescape=True: device hostnames/filenames/errors originate from untrusted
+    # config files; escape them to prevent stored XSS in the fleet summary HTML.
+    env = Environment(loader=BaseLoader(), autoescape=True)
     tmpl = env.from_string(FLEET_TEMPLATE)
     html = tmpl.render(fleet=fleet_json, grade_color_map=grade_color_map)
     out_path.write_text(html, encoding="utf-8")

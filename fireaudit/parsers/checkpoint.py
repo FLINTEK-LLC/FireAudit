@@ -1,3 +1,6 @@
+# Copyright (c) 2026 FLINTEK LLC
+# Licensed under the Apache License, Version 2.0.
+# See LICENSE in the project root for license information.
 """Check Point Gaia OS configuration parser.
 
 Parses 'show configuration' (clish format) output from Check Point Gaia OS

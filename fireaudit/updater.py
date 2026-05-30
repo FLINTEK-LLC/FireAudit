@@ -1,3 +1,6 @@
+# Copyright (c) 2026 FLINTEK LLC
+# Licensed under the Apache License, Version 2.0.
+# See LICENSE in the project root for license information.
 """FireAudit self-updater and rules updater.
 
 Checks GitHub releases for:
@@ -10,6 +13,7 @@ All network calls use only the stdlib (urllib) — no extra dependencies.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import platform
 import shutil
@@ -21,6 +25,8 @@ import urllib.request
 import zipfile
 from pathlib import Path
 from typing import Optional
+
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -228,6 +234,7 @@ def apply_rules_update(release: dict, progress_cb=None) -> str:
         zip_path = Path(tmp) / "rules.zip"
         _download(download_url, zip_path, progress_cb=progress_cb)
 
+        rules_root = USER_RULES_DIR.resolve()
         with zipfile.ZipFile(zip_path) as zf:
             # Extract only .yaml/.yml files, stripping a leading 'rules/' prefix
             extracted = 0
@@ -236,12 +243,17 @@ def apply_rules_update(release: dict, progress_cb=None) -> str:
                     continue
                 # Strip leading path component ('rules/admin/...' -> 'admin/...')
                 parts = Path(member).parts
-                if parts[0] == "rules":
+                if parts and parts[0] == "rules":
                     parts = parts[1:]
                 rel = Path(*parts) if parts else None
                 if rel is None:
                     continue
-                dest = USER_RULES_DIR / rel
+                dest = (USER_RULES_DIR / rel).resolve()
+                # Zip Slip guard: refuse any archive member that resolves outside
+                # the user rules directory (e.g. crafted '../' traversal entries).
+                if dest != rules_root and rules_root not in dest.parents:
+                    log.warning("Skipping unsafe rules archive member: %s", member)
+                    continue
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 with zf.open(member) as src, dest.open("wb") as dst:
                     shutil.copyfileobj(src, dst)

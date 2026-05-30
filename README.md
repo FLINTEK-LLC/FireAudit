@@ -319,4 +319,26 @@ Exit code 2 makes FireAudit CI/CD pipeline friendly.
 
 ## License
 
-MIT
+Copyright (c) 2026 FLINTEK LLC.
+
+Licensed under the **Apache License, Version 2.0** (the "License"); you may not
+use this software except in compliance with the License. You may obtain a copy
+of the License at <http://www.apache.org/licenses/LICENSE-2.0> or in the
+[LICENSE](LICENSE) file in the project root.
+
+Unless required by applicable law or agreed to in writing, software distributed
+under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+CONDITIONS OF ANY KIND, either express or implied.
+
+```
+SPDX-License-Identifier: Apache-2.0
+```
+
+### Third-party dependencies
+
+FireAudit bundles the [fpdf2](https://github.com/py-pdf/fpdf2) library
+(**LGPL-3.0-only**) for PDF generation. LGPL-3.0 is compatible with Apache-2.0
+distribution, but note that the standalone PyInstaller binary statically embeds
+fpdf2; recipients of that binary retain the LGPL right to relink against a
+modified fpdf2. All other runtime dependencies are permissively licensed (MIT /
+BSD-3-Clause). See [AUDIT.md](AUDIT.md) for the full dependency license review.

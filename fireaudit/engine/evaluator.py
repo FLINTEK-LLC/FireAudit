@@ -1,3 +1,6 @@
+# Copyright (c) 2026 FLINTEK LLC
+# Licensed under the Apache License, Version 2.0.
+# See LICENSE in the project root for license information.
 """Rule evaluator — applies loaded rules against a normalized IR and produces findings."""
 
 from __future__ import annotations
@@ -6,6 +9,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from functools import lru_cache
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -81,8 +85,14 @@ def resolve_path(ir: dict, path: str) -> Any:
     return _resolve(ir, parts)
 
 
-def _split_path(path: str) -> list[str | int | None]:
-    """Split a dot-notation path into resolved segments."""
+@lru_cache(maxsize=2048)
+def _split_path(path: str) -> tuple[str | int | None, ...]:
+    """Split a dot-notation path into resolved segments.
+
+    Cached: rule paths are a small, fixed set of short strings reused across every
+    IR evaluation. A tuple is returned so the cached value cannot be mutated by
+    callers.
+    """
     result: list[str | int | None] = []
     for raw in path.split("."):
         if "[" in raw:
@@ -93,7 +103,7 @@ def _split_path(path: str) -> list[str | int | None]:
             result.append(None if idx_str == "*" else int(idx_str))
         else:
             result.append(raw)
-    return result
+    return tuple(result)
 
 
 def _resolve(obj: Any, parts: list) -> Any:
